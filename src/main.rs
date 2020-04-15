@@ -57,50 +57,52 @@ impl Into<Vec<u8>> for M256 {
 impl M256 {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
     unsafe fn step(&mut self) {
-        // calculate number of neighbors by shifting and adding the current universe
-        // by one position into all possible directions
+        // calculate number of neighbors by rotating and adding the current
+        // universe by one position into all possible directions
+
         let mut neighbors = _mm256_setzero_si256();
 
-        // shift universe up
+        // rotate up
         let idx = M256 { u32s: (1, 2, 3, 4, 5, 6, 7, 0)};
         let tmp = _mm256_permutevar8x32_epi32(self.m256i, idx.m256i);
         neighbors = _mm256_add_epi64(neighbors, tmp);
 
-        // shift universe up + left
+        // rotate up + left
         neighbors = _mm256_add_epi64(neighbors, _mm256_xor_si256(_mm256_srli_epi32(tmp, 4), _mm256_slli_epi32(tmp, 28)));
 
-        // shift universe up + right
+        // rotate up + right
         neighbors = _mm256_add_epi64(neighbors, _mm256_xor_si256(_mm256_slli_epi32(tmp, 4), _mm256_srli_epi32(tmp, 28)));
 
-        // shift universe left
+        // rotate left
         let tmp = self.m256i;
         neighbors = _mm256_add_epi64(neighbors, _mm256_xor_si256(_mm256_srli_epi32(tmp, 4), _mm256_slli_epi32(tmp, 28)));
 
-        // shift universe right
+        // rotate right
         neighbors = _mm256_add_epi64(neighbors, _mm256_xor_si256(_mm256_slli_epi32(tmp, 4), _mm256_srli_epi32(tmp, 28)));
 
-        // shift universe down
+        // rotate down
         let idx = M256 { u32s: (7, 0, 1, 2, 3, 4, 5, 6)};
         let tmp = _mm256_permutevar8x32_epi32(self.m256i, idx.m256i);
         neighbors = _mm256_add_epi64(neighbors, tmp);
 
-        // shift universe down + left
+        // rotate down + left
         neighbors = _mm256_add_epi64(neighbors, _mm256_xor_si256(_mm256_srli_epi32(tmp, 4), _mm256_slli_epi32(tmp, 28)));
 
-        // shift universe down + right
+        // rotate down + right
         neighbors = _mm256_add_epi64(neighbors, _mm256_xor_si256(_mm256_slli_epi32(tmp, 4), _mm256_srli_epi32(tmp, 28)));
 
         // universe OR neighbors
+        // all future living cells equal 0x3, all other values are dead cells
         neighbors = _mm256_or_si256(neighbors, self.m256i);
 
-        // upper four bits of every byte == 0x3?
-        let upper_bits = _mm256_and_si256(_mm256_cmpeq_epi8 (_mm256_and_si256(neighbors, _mm256_set1_epi8(-16i8)), _mm256_set1_epi8(0x30)), _mm256_set1_epi8(0x10));
+        // upper nibble of every byte == 0x3?
+        let upper_nibbles = _mm256_and_si256(_mm256_cmpeq_epi8 (_mm256_and_si256(neighbors, _mm256_set1_epi8(-16i8)), _mm256_set1_epi8(0x30)), _mm256_set1_epi8(0x10));
 
-        // lower four bits of every byte == 0x3?
-        let lower_bits = _mm256_and_si256(_mm256_cmpeq_epi8 (_mm256_and_si256(neighbors, _mm256_set1_epi8(0xf)), _mm256_set1_epi8(3)), _mm256_set1_epi8(1));
+        // lower nibble of every byte == 0x3?
+        let lower_nibbles = _mm256_and_si256(_mm256_cmpeq_epi8 (_mm256_and_si256(neighbors, _mm256_set1_epi8(0xf)), _mm256_set1_epi8(3)), _mm256_set1_epi8(1));
 
         // update universe
-        self.m256i = _mm256_xor_si256(upper_bits, lower_bits);
+        self.m256i = _mm256_xor_si256(upper_nibbles, lower_nibbles);
     }
 
     fn print(&self) {
@@ -145,7 +147,7 @@ fn main() {
 
     let elapsed = now.elapsed().as_millis() as f64 / 1000.0;
 
-    println!("One billion steps took {:.4} seconds, that is {} steps per second!", elapsed, STEPS / elapsed as usize);
+    println!("{} steps took {:.4} seconds, that is {} steps per second!", STEPS, elapsed, STEPS / elapsed as usize);
 }
 
 #[test]
