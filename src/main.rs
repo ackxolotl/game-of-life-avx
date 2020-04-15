@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #![feature(stdsimd)]
 
 // Conway's Game of Life using AVX instructions
@@ -12,8 +13,9 @@ use std::time::Instant;
 
 const STEPS: usize = 1_000_000_000;
 
+#[derive(Copy, Clone)]
 #[repr(C)]
-union M256 {
+pub union M256 {
     u8s: (
         (u8, u8, u8, u8, u8, u8, u8, u8),
         (u8, u8, u8, u8, u8, u8, u8, u8),
@@ -56,7 +58,7 @@ impl Into<Vec<u8>> for M256 {
 
 impl M256 {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
-    unsafe fn step(&mut self) {
+    pub unsafe fn step(&mut self) {
         // calculate number of neighbors by shifting and adding the current universe
         // by one position into all possible directions
         let mut neighbors = _mm256_setzero_si256();
