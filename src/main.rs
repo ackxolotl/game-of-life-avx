@@ -3,10 +3,10 @@
 // Conway's Game of Life using AVX instructions
 // Compile with `rustc +nightly -C opt-level=3 -C target-cpu=native src/main.rs`.
 
-#[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
 #[cfg(target_arch = "x86")]
 use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
 
 use std::time::Instant;
 
@@ -32,7 +32,7 @@ impl From<&Vec<u8>> for M256 {
                 ((v[17] << 4) + v[16], (v[19] << 4) + v[18], (v[21] << 4) + v[20], (v[23] << 4) + v[22], (v[25] << 4) + v[24], (v[27] << 4) + v[26], (v[29] << 4) + v[28], (v[31] << 4) + v[30]),
                 ((v[33] << 4) + v[32], (v[35] << 4) + v[34], (v[37] << 4) + v[36], (v[39] << 4) + v[38], (v[41] << 4) + v[40], (v[43] << 4) + v[42], (v[45] << 4) + v[44], (v[47] << 4) + v[46]),
                 ((v[49] << 4) + v[48], (v[51] << 4) + v[50], (v[53] << 4) + v[52], (v[55] << 4) + v[54], (v[57] << 4) + v[56], (v[59] << 4) + v[58], (v[61] << 4) + v[60], (v[63] << 4) + v[62]),
-                )
+            ),
         }
     }
 }
@@ -55,7 +55,10 @@ impl Into<Vec<u8>> for M256 {
 }
 
 impl M256 {
-    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), target_feature = "avx2"))]
+    #[cfg(all(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        target_feature = "avx2"
+    ))]
     unsafe fn step(&mut self) {
         // calculate number of neighbors by rotating and adding the current
         // universe by one position into all possible directions
@@ -135,7 +138,23 @@ fn main() {
 
     let mut universe = M256::from(&universe_with_glider);
 
-    universe.print();
+    println!(
+        "Simulating {} billion steps of this universe: \n",
+        STEPS / 1_000_000_000
+    );
+
+    for _ in 0..3 {
+        universe.print();
+
+        println!("       |       ");
+        println!("       v       \n");
+
+        unsafe {
+            universe.step();
+        }
+    }
+
+    println!("      ...      \n");
 
     let now = Instant::now();
 
@@ -147,7 +166,12 @@ fn main() {
 
     let elapsed = now.elapsed().as_millis() as f64 / 1000.0;
 
-    println!("{} steps took {:.4} seconds, that is {} steps per second!", STEPS, elapsed, STEPS / elapsed as usize);
+    println!(
+        "{} billion steps took {:.3} seconds, that is about {} million steps per second!",
+        STEPS / 1_000_000_000,
+        elapsed,
+        (STEPS as f64 / elapsed) as usize / 1_000_000
+    );
 }
 
 #[test]
